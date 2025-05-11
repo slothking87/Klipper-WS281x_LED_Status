@@ -1,52 +1,68 @@
-# Klipper-WS281x_LED_Status
-This script will take the printer status from Klipper/Moonraker and apply different effects to a WS281x LED strip.
+# Klipper-SK6812_LED_Status
+This script will take the printer status from Klipper/Moonraker and apply different effects to a SK6812 LED strip.
 
-The code has been migrated from the OctoPrint-WS281x_LED_Status (https://github.com/cp2004/OctoPrint-WS281x_LED_Status) plugin to work with Klipper.
+The code has been migrated from the OctoPrint-WS281x_LED_Status (https://github.com/cp2004/OctoPrint-WS281x_LED_Status) plugin to work with Klipper. Forked from https://github.com/11chrisadams11/Klipper-WS281x_LED_Status and updasted to use SK6812
 
 ----
 
 ## Directions for use
+#!/bin/bash
 
-1. Install prerequsits
-   1. ```sudo apt update && sudo apt install -y git```
-   2. ```sudo pip3 install requests PyYAML RPi.GPIO rpi_ws281x adafruit-circuitpython-neopixel```
-2. Clone code to Raspberry Pi running Klipper and Moonraker
-   1. ```cd /home/pi```
-   2. ```git clone https://github.com/11chrisadams11/Klipper-WS281x_LED_Status.git```
-   3. ```cd Klipper-WS281x_LED_Status```
-3. Make script executable
-   1. ```chmod 744 ./klipper_ledstrip.py```
-4. Change strip values in settings.conf (LED pin, brightness, timeout)
-5. Optionally, change effects and colors for standby, paused, and error states in settings.conf
-6. If you want to run it manually, start script before starting print (otherwise use the service below)
-   1. ```./klipper_ledstrip.py```
+# Exit on any error
+set -e
 
-## Directions to run as a systemd service
+echo "🔧 Updating and installing dependencies..."
+sudo apt update
+sudo apt install -y python3-pip python3-dev python3-gpiozero git
 
-1. Copy contents of ledstrip.service to /etc/systemd/system/ledstrip.service
-2. Modify User, Group, WorkingDirectory, and ExecStart to match your setup
-3. Run ```systemctl daemon-reload``` to enable the service
-4. Run ```systemctl enable ledstrip``` to have the service start on boot
-5. Run ```systemctl start ledstrip``` to start the service
+echo "📦 Installing required Python libraries..."
+pip3 install --upgrade setuptools
+pip3 install adafruit-circuitpython-neopixel
 
-## Directions to change settings (when using service)
+echo "🔌 Enabling SPI and UART (for board support)..."
+sudo raspi-config nonint do_spi 0
+sudo raspi-config nonint do_serial 1
 
-1. Modify settings in settings.conf
-2. Run ```systemctl restart ledstrip``` to restart the ledstrip service
+echo "📁 Cloning LED control script directory..."
+cd ~
+git clone https://github.com/your/repo/Klipper-WS281x_LED_Status.git  # Change this to your repo if you have one
+cd Klipper-WS281x_LED_Status
 
-### Single run for static colors
-#### Will only work by itself, not if running as a service
+echo "🔧 Making the script executable..."
+chmod +x led_control.py
 
-```
-./klipper_ledstrip.py <red> <green> <blue> <brightness:optiona>
+echo "⚙️ Setting up systemd service..."
 
-Example:
-  ./klipper_ledstrip.py 255 255 255 255 ## Full brightness white
-  ./klipper_ledstrip.py 255 0 0 ## Red with default brightness specified in the script
-```
+# Create the systemd service file
+sudo tee /etc/systemd/system/led_control.service > /dev/null <<EOF
+[Unit]
+Description=LED Control Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/Klipper-WS281x_LED_Status/led_control.py
+WorkingDirectory=/home/pi/Klipper-WS281x_LED_Status
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "🔄 Reloading systemd, enabling and starting the service..."
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable led_control.service
+sudo systemctl start led_control.service
+
+echo "✅ Setup complete!"
+
+``
 
 #### To call from gcode shell commands (thanks to [JV_JV](https://www.reddit.com/user/JV_JV/) for the setup directions)
-Add custom entries to printer.cfg 
+Add custom entries to printer.cfg - change the directory to match yours. 
 
 ```
 [gcode_shell_command led_off]
